@@ -42,10 +42,10 @@ def validate_name(name: str) -> None:
 def main():
     cmd_args = parse_terminal_args(terminal_args)
     validate_name(cmd_args.name)
-    ini_path = Path.cwd().absolute() / cmd_args.name
+    ini_path = Path.cwd().absolute() / f".{cmd_args.name}"
 
     try:
-        ini_path.touch()
+        ini_path.touch(exist_ok=False)
         ini_path.write_text(INI_TEMPLATE)
 
     except FileExistsError:
