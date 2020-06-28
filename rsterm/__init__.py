@@ -4,6 +4,7 @@ import psycopg2
 import pkgutil
 import inspect
 import yaml
+import sys
 from typing import List, NamedTuple, Tuple, Any, Dict
 from importlib import import_module
 from psycopg2.extensions import connection
@@ -21,15 +22,15 @@ class AWSSecrets(NamedTuple):
     secret: str
 
 
-class TerminalArgs:
+class VerbNounMap:
 
-    def __init__(self, verbs: List[str], nouns: List[str]) -> None:
+    def __init__(self, verbs: Tuple[str] = None, nouns: Tuple[str] = None) -> None:
         self._args = {
-            'verbs': verbs,
-            'nouns': nouns
+            'verbs': verbs or (),
+            'nouns': nouns or ()
         }
 
-        self._formatted_args = {
+        self._formatted_actions = {
 
             ('verb',): {
                 'help': 'The action you would like to perform',
@@ -51,27 +52,12 @@ class TerminalArgs:
         return self._args['verbs']
 
     @property
-    def formatted_args(self) -> Dict[Tuple[str], Dict[str, Any]]:
-        return self._formatted_args
+    def formatted_actions(self) -> Dict[Tuple[str], Dict[str, Any]]:
+        return self._formatted_actions
 
     @property
-    def verb_noun_map(self) -> List[str]:
-        return [f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns]
-
-    def add_nouns(self, args: List[str]) -> None:
-        nouns = self._args['nouns']
-        nouns.extend(args)
-        noun_set = list(set(nouns))
-        self._args['nouns'] = noun_set
-
-    def add_verbs(self, args: List[str]) -> None:
-        verbs = self._args['verbs']
-        verbs.extend(args)
-        verb_set = list(set(verbs))
-        self._args['verbs'] = verb_set
-
-    def add_args(self, args: Dict[Tuple[str], Dict[str, Any]]):
-        self._formatted_args.update(args)
+    def verb_noun_map(self) -> Tuple[str]:
+        return (f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns)
 
 
 class RSTermConfig:
@@ -85,9 +71,9 @@ class RSTermConfig:
     def __setitem__(self, key, value):
         self._config[key] = value
 
-    def get_terminal_args(self):
+    def get_verb_noun_map(self):
         terminal_args = self._config['rsterm']['terminal']
-        return TerminalArgs(verbs=terminal_args['verbs'], nouns=terminal_args['nouns'])
+        return VerbNounMap(verbs=terminal_args['verbs'], nouns=terminal_args['nouns'])
 
     def get_db_connection_string(self, connection_name: str) -> str:
         return self._config['rsterm']['db_connections'][connection_name]
@@ -104,21 +90,31 @@ class RSTermConfig:
     def get_env_file_name(self, env_name: str) -> str:
         return self._config['rsterm']['environment'][env_name]
 
+    def get_entry_points(self) -> List[Path]:
+        return [Path(p) for p in self._config['rsterm']['entrypoints']]
 
-def parse_config(config_path: Path = None) -> RSTermConfig:
-    config_path: Path = config_path or Path.cwd().absolute() / 'rsterm.yml'
+    def parse_nouns_and_verbs(self) -> Namespace:
+        arg_parser = ArgumentParser()
 
-    if config_path.exists():
-        config = yaml.safe_load(config_path.open())
-        return RSTermConfig(**config)
+        for command, options in self.get_verb_noun_map().formatted_actions.items():
+            arg_parser.add_argument(*command, **options)
+        return arg_parser.parse_args(sys.argv[1:3])
+
+    @classmethod
+    def parse_config(cls) -> 'RSTermConfig':
+        config_path: Path = Path.cwd().absolute() / 'rsterm.yml'
+
+        if config_path.exists():
+            config = yaml.safe_load(config_path.open())
+            return cls(**config)
 
 
-def parse_terminal_args(args_config: Dict) -> Namespace:
+def parse_entry_args(args_config: Dict) -> Namespace:
     arg_parser = ArgumentParser()
 
     for command, options in args_config.items():
         arg_parser.add_argument(*command, **options)
-    return arg_parser.parse_args()
+    return arg_parser.parse_args(sys.argv[3:])
 
 
 def load_app_env(env_file_path: Path):
@@ -137,73 +133,36 @@ def get_db_connection(connection_name: str) -> psycopg2.connect:
         raise EnvironmentError(f"no connection string found in .env for {connection_name}")
 
 
-def collect_entrypoints(config_path: Path = None):
-
-    if not config_path:
-        config_path = Path.cwd() / "rsterm.yml"
-
-    verb_noun_map = parse_config(config_path).get_terminal_args().verb_noun_map
-
-
-
-
-def import_entry_points():
-    modules = []
-    ep_path = Path() / "entrypoints"
-
-    for _, name, _ in pkgutil.iter_modules([ep_path]):
-        module = import_module(f"{ep_path.as_posix()}.{name}")
-        modules.append(module)
-
-    modules.append(import_module(ep_path.as_posix()))
-
-    for m in modules:
-        for name, obj in inspect.getmembers(m):
-            if inspect.isclass(obj):
-                if obj.__name__ != 'EntryPoint':
-                    obj({}).call()
-
-
 class EntryPoint(ABC):
+
     entry_point_args = {}
-    entry_point_verbs = []
-    entry_point_nouns = []
 
-    def __init__(self, config_path: Path = None, env_name: str = None):
-
-        if not config_path:
-            config_path = Path('rsterm.yml')
+    def __init__(self, env_name: str = None):
 
         if not env_name:
             env_name = 'app_env'
 
-        self.config: RSTermConfig = parse_config(config_path)
+        self.config: RSTermConfig = RSTermConfig.parse_config()
 
         self.env_file_path = Path().cwd() / self.config.get_env_file_name(env_name)
 
-        terminal_args = self.config.get_terminal_args()
-
-        terminal_args.add_args(self.entry_point_args)
-        terminal_args.add_nouns(self.entry_point_nouns)
-        terminal_args.add_verbs(self.entry_point_verbs)
-
-        self.cmd_args: Namespace = parse_terminal_args(terminal_args.formatted_args)
+        self.cmd_args: Namespace = parse_entry_args(self.entry_point_args)
 
         load_app_env(self.env_file_path)
 
         self.db_connection: connection = None
 
     @classmethod
-    def new(cls, config_path: Path = None, env_name: str = None):
+    def new(cls, env_name: str = None):
         cls._validate_class_name()
-        return cls(config_path, env_name)
+        return cls(env_name)
 
     @abstractmethod
     def run(self) -> None:
         pass
 
     @classmethod
-    def entry_point_name(cls) -> str:
+    def name(cls) -> str:
         name = cls.__name__
         snake = ''.join([f'_{c.lower()}' if c.isupper() else c for c in name])
         return snake.lstrip('_')
@@ -211,17 +170,64 @@ class EntryPoint(ABC):
     @classmethod
     def _validate_class_name(cls) -> None:
         underscores = 0
-        for char in cls.entry_point_name():
+        for char in cls.name():
             if char == '_':
                 underscores += 1
 
         if underscores > 1:
             raise Exception("Class names must consists of 2 words, in the format VerbNoun.")
 
-    @staticmethod
-    def is_entrypoint() -> bool:
-        return True
+    @classmethod
+    def is_entrypoint(cls) -> bool:
+        return False if cls.__name__ == 'EntryPoint' else True
 
     def set_db_connection(self, connection_name: str):
         connection_env_var = self.config.get_db_connection_string(connection_name)
         self.db_connection = get_db_connection(connection_env_var)
+
+
+def collect_entry_points() -> Dict[str, EntryPoint]:
+    config = RSTermConfig.parse_config()
+    modules = []
+    entry_points = []
+
+    for entry_point_path in config.get_entry_points():
+
+        # include path if we have an __init__.py file
+        modules.append(import_module(entry_point_path.as_posix()))
+
+        for _, name, _ in pkgutil.iter_modules([entry_point_path]):
+            module = import_module(f"{entry_point_path.as_posix()}.{name}")
+            modules.append(module)
+
+    # look through all the modules, and find all entry point classes
+    for module in modules:
+
+        for name, obj in inspect.getmembers(module):
+
+            if inspect.isclass(obj):
+
+                try:
+                    if obj.is_entrypoint():
+                        entry_points.append(obj)
+                except AttributeError:
+                    pass
+
+    return {entry_point.name(): entry_point for entry_point in entry_points}
+
+
+def run_entry_point(env_name: str = None):
+    entry_points = collect_entry_points()
+    config = RSTermConfig.parse_config()
+    ns = config.parse_nouns_and_verbs()
+    key = f"{ns.verb}_{ns.noun}"
+
+    try:
+        entry_point = entry_points[key].new(env_name)
+        entry_point.run()
+
+    except KeyError:
+        print("invalid command. Not yet implemented, try again.")
+
+    finally:
+        exit(0)

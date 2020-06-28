@@ -39,11 +39,6 @@ terminal_args = {
     ('new',): {
         'help': 'Command to create a new config',
         'choices': ['new']
-    },
-
-    ('--name', '-n'): {
-        'help': 'The name of the new YML config to create. The yml extension will be appended to the name automatically',
-        'default': 'rsterm'
     }
 }
 
