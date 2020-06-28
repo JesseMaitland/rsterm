@@ -1,9 +1,21 @@
+from pathlib import Path
+
 from rsterm import EntryPoint
 
 
-class MyEt1(EntryPoint):
+class DoAction(EntryPoint):
 
-    def call(self) -> None:
+    entry_point_args = {
+
+        ('--foo', '-f'): {
+            'help': 'pass some optional foo!'
+        }
+    }
+
+    def __init__(self, config_path: Path = None, env_name: str = None):
+        super().__init__(config_path, env_name)
+
+    def run(self) -> None:
         print('here is my code 1')
 
 

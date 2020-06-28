@@ -11,7 +11,6 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from argparse import Namespace, ArgumentParser
 
-
 DEFAULT_CONFIG_PATH = Path().cwd() / 'rsterm.yml'
 DEFAULT_ENV_FILE = Path().cwd() / '.env'
 DEFAULT_DB_CONNECTION_NAME = 'redshift'
@@ -32,12 +31,12 @@ class TerminalArgs:
 
         self._formatted_args = {
 
-            ('verb', ): {
+            ('verb',): {
                 'help': 'The action you would like to perform',
                 'choices': verbs
             },
 
-            ('noun', ): {
+            ('noun',): {
                 'help': 'The element to act upon',
                 'choices': nouns
             }
@@ -55,14 +54,20 @@ class TerminalArgs:
     def formatted_args(self) -> Dict[Tuple[str], Dict[str, Any]]:
         return self._formatted_args
 
-    def add_nouns(self, *args: List[str]) -> None:
+    @property
+    def verb_noun_map(self) -> List[str]:
+        return [f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns]
+
+    def add_nouns(self, args: List[str]) -> None:
         nouns = self._args['nouns']
-        noun_set = list(set(nouns.extend(args)))
+        nouns.extend(args)
+        noun_set = list(set(nouns))
         self._args['nouns'] = noun_set
 
-    def add_verbs(self, *args: List[str]) -> None:
+    def add_verbs(self, args: List[str]) -> None:
         verbs = self._args['verbs']
-        verb_set = list(set(verbs.extend(args)))
+        verbs.extend(args)
+        verb_set = list(set(verbs))
         self._args['verbs'] = verb_set
 
     def add_args(self, args: Dict[Tuple[str], Dict[str, Any]]):
@@ -97,7 +102,7 @@ class RSTermConfig:
         return self._config['s3_buckets'][bucket_name]
 
     def get_env_file_name(self, env_name: str) -> str:
-        return self._config['environment'][env_name]
+        return self._config['rsterm']['environment'][env_name]
 
 
 def parse_config(config_path: Path = None) -> RSTermConfig:
@@ -117,7 +122,6 @@ def parse_terminal_args(args_config: Dict) -> Namespace:
 
 
 def load_app_env(env_file_path: Path):
-
     if not env_file_path.exists():
         raise FileNotFoundError(f"no .env file found at {env_file_path.as_posix()}")
     else:
@@ -131,6 +135,16 @@ def get_db_connection(connection_name: str) -> psycopg2.connect:
         return psycopg2.connect(db_connection_string)
     else:
         raise EnvironmentError(f"no connection string found in .env for {connection_name}")
+
+
+def collect_entrypoints(config_path: Path = None):
+
+    if not config_path:
+        config_path = Path.cwd() / "rsterm.yml"
+
+    verb_noun_map = parse_config(config_path).get_terminal_args().verb_noun_map
+
+
 
 
 def import_entry_points():
@@ -150,17 +164,22 @@ def import_entry_points():
                     obj({}).call()
 
 
-
-
 class EntryPoint(ABC):
-
     entry_point_args = {}
     entry_point_verbs = []
     entry_point_nouns = []
 
-    def __init__(self, config_path: Path = DEFAULT_CONFIG_PATH, env_file_path: Path = DEFAULT_ENV_FILE):
-        self.env_file_path = env_file_path
+    def __init__(self, config_path: Path = None, env_name: str = None):
+
+        if not config_path:
+            config_path = Path('rsterm.yml')
+
+        if not env_name:
+            env_name = 'app_env'
+
         self.config: RSTermConfig = parse_config(config_path)
+
+        self.env_file_path = Path().cwd() / self.config.get_env_file_name(env_name)
 
         terminal_args = self.config.get_terminal_args()
 
@@ -174,10 +193,34 @@ class EntryPoint(ABC):
 
         self.db_connection: connection = None
 
+    @classmethod
+    def new(cls, config_path: Path = None, env_name: str = None):
+        cls._validate_class_name()
+        return cls(config_path, env_name)
 
     @abstractmethod
     def run(self) -> None:
         pass
+
+    @classmethod
+    def entry_point_name(cls) -> str:
+        name = cls.__name__
+        snake = ''.join([f'_{c.lower()}' if c.isupper() else c for c in name])
+        return snake.lstrip('_')
+
+    @classmethod
+    def _validate_class_name(cls) -> None:
+        underscores = 0
+        for char in cls.entry_point_name():
+            if char == '_':
+                underscores += 1
+
+        if underscores > 1:
+            raise Exception("Class names must consists of 2 words, in the format VerbNoun.")
+
+    @staticmethod
+    def is_entrypoint() -> bool:
+        return True
 
     def set_db_connection(self, connection_name: str):
         connection_env_var = self.config.get_db_connection_string(connection_name)
