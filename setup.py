@@ -33,6 +33,7 @@ setup(
     install_requires=[
         'psycopg2-binary',
         'python-dotenv',
+        'pyyaml'
     ],
     license='MIT',
     packages=find_packages(exclude=('tests*', 'venv')),

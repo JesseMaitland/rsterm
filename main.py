@@ -2,32 +2,48 @@ from pathlib import Path
 from string import punctuation
 from rsterm import parse_terminal_args
 
-INI_TEMPLATE = """
+YML_TEMPLATE = """
+rsterm:
 
-[app_env]
-    file_name = .env
+  entrypoints:
+    - entry.terminal
+  
+  environment:
+    app_env: .env
     
-[db_connections]
-    default = DB_URL
+    db_connections:
+      redshift: DATABASE_URL
+        
+    iam_roles:
+      redshift: IAM_ROLE
+        
+    aws_secrets:
+      key: AWS_ACCESS_KEY_ID
+      secret: AWS_ACCESS_KEY_SECRET
+        
+    aws_buckets:
+      redshift: S3_BUCKETS
 
-[iam_roles]
-    default = IAM_ROLE
-    
-[aws_secrets]
-    key = AWS_ACCESS_KEY_ID
-    secret = AWS_ACCESS_KEY_SECRET
-    
-[aws_buckets]
-    default = S3_BUCKET
-"""
+  terminal:  
+    verbs:
+      - new
+      - list
+      
+    nouns:
+      - file
+      - configs
+
+""".lstrip()
 
 terminal_args = {
     ('new',): {
-        'help': 'Command to create a new config'
+        'help': 'Command to create a new config',
+        'choices': ['new']
     },
 
-    ('name',): {
-        'help': 'The name of the new INI config to create. A dot will be automatically prepended to the file name.'
+    ('--name', '-n'): {
+        'help': 'The name of the new YML config to create. The yml extension will be appended to the name automatically',
+        'default': 'rsterm'
     }
 }
 
@@ -42,17 +58,18 @@ def validate_name(name: str) -> None:
 def main():
     cmd_args = parse_terminal_args(terminal_args)
     validate_name(cmd_args.name)
-    ini_path = Path.cwd().absolute() / f".{cmd_args.name}"
+    config_name = f"{cmd_args.name}.yml"
+    ini_path = Path.cwd().absolute() / config_name
 
     try:
         ini_path.touch(exist_ok=False)
-        ini_path.write_text(INI_TEMPLATE)
+        ini_path.write_text(YML_TEMPLATE)
 
     except FileExistsError:
-        print(f"File name {cmd_args.name} already exists. Please choose another name.")
+        print(f"File name {config_name} already exists. Please choose another name.")
         exit()
 
-    print(f".{cmd_args.name} was create in your projects root directory! Please configure this file.")
+    print(f"{config_name} was created in your projects root directory! Please configure this file.")
 
 
 if __name__ == '__main__':
