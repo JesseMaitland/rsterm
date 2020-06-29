@@ -57,7 +57,7 @@ class VerbNounMap:
 
     @property
     def verb_noun_map(self) -> Tuple[str]:
-        return (f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns)
+        return tuple([f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns])
 
 
 class RSTermConfig:
@@ -82,7 +82,7 @@ class RSTermConfig:
         return AWSSecrets(**self._config['rsterm']['aws_secrets'])
 
     def get_iam_role(self, role_name: str) -> str:
-        return self._config['iam_roles'][role_name]
+        return self._config['rsterm']['iam_roles'][role_name]
 
     def get_s3_bucket(self, bucket_name: str) -> str:
         return self._config['s3_buckets'][bucket_name]
@@ -117,6 +117,14 @@ def parse_entry_args(args_config: Dict) -> Namespace:
     return arg_parser.parse_args(sys.argv[3:])
 
 
+def parse_cmd_args(args_config: Dict) -> Namespace:
+    arg_parser = ArgumentParser()
+
+    for command, options in args_config.items():
+        arg_parser.add_argument(*command, **options)
+    return arg_parser.parse_args()
+
+
 def load_app_env(env_file_path: Path):
     if not env_file_path.exists():
         raise FileNotFoundError(f"no .env file found at {env_file_path.as_posix()}")
@@ -134,7 +142,6 @@ def get_db_connection(connection_name: str) -> psycopg2.connect:
 
 
 class EntryPoint(ABC):
-
     entry_point_args = {}
 
     def __init__(self, env_name: str = None):
@@ -193,11 +200,13 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
 
     for entry_point_path in config.get_entry_points():
 
+        doted_path = entry_point_path.as_posix().replace('/', '.')
+
         # include path if we have an __init__.py file
-        modules.append(import_module(entry_point_path.as_posix()))
+        modules.append(import_module(doted_path))
 
         for _, name, _ in pkgutil.iter_modules([entry_point_path]):
-            module = import_module(f"{entry_point_path.as_posix()}.{name}")
+            module = import_module(f"{doted_path}.{name}")
             modules.append(module)
 
     # look through all the modules, and find all entry point classes
@@ -223,11 +232,13 @@ def run_entry_point(env_name: str = None):
     key = f"{ns.verb}_{ns.noun}"
 
     try:
-        entry_point = entry_points[key].new(env_name)
-        entry_point.run()
+        if key not in entry_points.keys():
+            raise NotImplementedError
+        else:
+            entry_point = entry_points[key].new(env_name)
+            entry_point.run()
 
-    except KeyError:
+    except NotImplementedError:
         print("invalid command. Not yet implemented, try again.")
 
-    finally:
-        exit(0)
+    exit(0)
