@@ -9,11 +9,11 @@ jobs:
       - run:
           name: install dependencies
           command: |
-            make init
+            make deployment_init
       - run:
           name: run unit tests
           command: |
-            make unit_test
+            make test
       - run:
           name: run lint
           command: |
@@ -27,7 +27,7 @@ jobs:
       - run:
           name: install dependencies
           command: |
-            make init
+            make deployment_init
       - run:
           name: verify git tag vs. version
           command: |

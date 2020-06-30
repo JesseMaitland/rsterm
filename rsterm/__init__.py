@@ -205,7 +205,7 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
 
     """
     look through all the modules that were collected, and if any of the classes found
-    in the corresponding module have have inherited from the class EntryPoint, add 
+    in the corresponding module have have inherited from the class EntryPoint, add
     them to the list of callable entry point classes.
     """
     for module in modules:

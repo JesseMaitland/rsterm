@@ -1,24 +1,48 @@
 #!/bin/bash
 
+export REQ_DIR = requirements
+export LIB_REQ = ${REQ_DIR}/lib_requirements.txt
+export DEP_REQ = ${REQ_DIR}/deploy_requirements.txt
+export PROJECT_DIR = rsterm
+export TEST_DIR = tests
+
+
 #############################################################
 #              Commands for Python environment              #
 #############################################################
 
-init:
+lib_init:
 	if [[ -d ./venv ]]; then rm -rf venv; fi \
 	&& python3.6 -m venv venv \
 	&& . venv/bin/activate \
 	&& pip install --upgrade pip setuptools wheel \
-	&& pip install -r requirements.txt
+	&& pip install -r ${LIB_REQ}
+
+
+deployment_init:
+	if [[ -d ./venv ]]; then rm -rf venv; fi \
+	&& python3.6 -m venv venv \
+	&& . venv/bin/activate \
+	&& pip install --upgrade pip setuptools wheel \
+	&& pip install -r ${DEP_REQ}
+
 
 req:
-	rm -f requirements.txt \
+	rm -f ${LIB_REQ} \
 	&& . venv/bin/activate \
-	&& pip freeze | grep 'flake8\|mccabe\|pycodestyle\|zipp\|pyflakes\|importlib-metadata\|rsterm' -v > requirements.txt
+	&& pip freeze | grep 'flake8\|mccabe\|pycodestyle\|zipp\|pyflakes\|importlib-metadata\|rsterm' -v > ${LIB_REQ}
+
+
+depreq:
+	rm -f ${DEP_REQ} \
+	&& . venv/bin/activate \
+	&& pip freeze | grep 'rsterm' -v > ${DEP_REQ}
+
 
 update:
 	. venv/bin/activate \
 	&& pip install --upgrade pip setuptools wheel
+
 
 install:
 	pip install -e .
@@ -30,14 +54,14 @@ install:
 
 lint:
 	. venv/bin/activate \
-	&& python -m flake8 ./redscope ./tests
+	&& python -m flake8 ${PROJECT_DIR} ${TEST_DIR}
 
-unit_test:
+test:
 	. venv/bin/activate \
-	&& python -m unittest discover -v tests/unit
+	&& python -m unittest discover -v ${TEST_DIR}
 
 qa:
-	make unit_test
+	make test
 	make lint
 
 
