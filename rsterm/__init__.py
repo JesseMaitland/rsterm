@@ -12,10 +12,6 @@ from pathlib import Path
 from abc import ABC, abstractmethod
 from argparse import Namespace, ArgumentParser
 
-DEFAULT_CONFIG_PATH = Path().cwd() / 'rsterm.yml'
-DEFAULT_ENV_FILE = Path().cwd() / '.env'
-DEFAULT_DB_CONNECTION_NAME = 'redshift'
-
 
 class AWSSecrets(NamedTuple):
     key: str
@@ -30,19 +26,6 @@ class VerbNounMap:
             'nouns': nouns or ()
         }
 
-        self._formatted_actions = {
-
-            ('verb',): {
-                'help': 'The action you would like to perform',
-                'choices': verbs
-            },
-
-            ('noun',): {
-                'help': 'The element to act upon',
-                'choices': nouns
-            }
-        }
-
     @property
     def nouns(self) -> List[str]:
         return self._args['nouns']
@@ -53,7 +36,18 @@ class VerbNounMap:
 
     @property
     def formatted_actions(self) -> Dict[Tuple[str], Dict[str, Any]]:
-        return self._formatted_actions
+        return {
+
+            ('verb',): {
+                'help': 'The action you would like to perform',
+                'choices': self.verbs
+            },
+
+            ('noun',): {
+                'help': 'The element to act upon',
+                'choices': self.nouns
+            }
+        }
 
     @property
     def verb_noun_map(self) -> Tuple[str]:
@@ -75,17 +69,35 @@ class RSTermConfig:
         terminal_args = self._config['rsterm']['terminal']
         return VerbNounMap(verbs=terminal_args['verbs'], nouns=terminal_args['nouns'])
 
-    def get_db_connection_string(self, connection_name: str) -> str:
-        return self._config['rsterm']['db_connections'][connection_name]
+    def get_db_connection(self, connection_name: str) -> connection:
+        conn_var_name = self._config['rsterm']['db_connections'][connection_name]
+        conn_string = os.getenv(conn_var_name)
+
+        if not conn_string:
+            raise ValueError(f'Connection {connection_name} / {conn_var_name} not found in environment.')
+        else:
+            return psycopg2.connect(conn_string)
 
     def get_aws_secrets(self) -> AWSSecrets:
         return AWSSecrets(**self._config['rsterm']['aws_secrets'])
 
     def get_iam_role(self, role_name: str) -> str:
-        return self._config['rsterm']['iam_roles'][role_name]
+        role_var_name = self._config['rsterm']['iam_roles'][role_name]
+        role_value = os.getenv(role_var_name)
+
+        if not role_var_name:
+            raise ValueError(f"AWS IAM_ROLE {role_name} / {role_var_name} does not exist.")
+        else:
+            return role_value
 
     def get_s3_bucket(self, bucket_name: str) -> str:
-        return self._config['s3_buckets'][bucket_name]
+        s3_bucket_var_name = self._config['s3_buckets'][bucket_name]
+        bucket_value = os.getenv(s3_bucket_var_name)
+
+        if not bucket_value:
+            raise ValueError(f"the S3 bucket {bucket_name} / {s3_bucket_var_name} does not exit.")
+        else:
+            return bucket_value
 
     def get_env_file_name(self, env_name: str) -> str:
         return self._config['rsterm']['environment'][env_name]
@@ -109,38 +121,6 @@ class RSTermConfig:
             return cls(**config)
 
 
-def parse_entry_args(args_config: Dict) -> Namespace:
-    arg_parser = ArgumentParser()
-
-    for command, options in args_config.items():
-        arg_parser.add_argument(*command, **options)
-    return arg_parser.parse_args(sys.argv[3:])
-
-
-def parse_cmd_args(args_config: Dict) -> Namespace:
-    arg_parser = ArgumentParser()
-
-    for command, options in args_config.items():
-        arg_parser.add_argument(*command, **options)
-    return arg_parser.parse_args()
-
-
-def load_app_env(env_file_path: Path):
-    if not env_file_path.exists():
-        raise FileNotFoundError(f"no .env file found at {env_file_path.as_posix()}")
-    else:
-        dotenv.load_dotenv(env_file_path)
-
-
-def get_db_connection(connection_name: str) -> psycopg2.connect:
-    db_connection_string = os.getenv(connection_name)
-
-    if db_connection_string:
-        return psycopg2.connect(db_connection_string)
-    else:
-        raise EnvironmentError(f"no connection string found in .env for {connection_name}")
-
-
 class EntryPoint(ABC):
     entry_point_args = {}
 
@@ -153,9 +133,9 @@ class EntryPoint(ABC):
 
         self.env_file_path = Path().cwd() / self.config.get_env_file_name(env_name)
 
-        self.cmd_args: Namespace = parse_entry_args(self.entry_point_args)
+        self.cmd_args: Namespace = self.parse_entry_args(self.entry_point_args)
 
-        load_app_env(self.env_file_path)
+        self.load_app_env(self.env_file_path)
 
         self.db_connection: connection = None
 
@@ -185,12 +165,26 @@ class EntryPoint(ABC):
             raise Exception("Class names must consists of 2 words, in the format VerbNoun.")
 
     @classmethod
-    def is_entrypoint(cls) -> bool:
+    def is_entry_point(cls) -> bool:
         return False if cls.__name__ == 'EntryPoint' else True
 
     def set_db_connection(self, connection_name: str):
-        connection_env_var = self.config.get_db_connection_string(connection_name)
-        self.db_connection = get_db_connection(connection_env_var)
+        self.db_connection = self.config.get_db_connection(connection_name)
+
+    @staticmethod
+    def parse_entry_args(args_config: Dict) -> Namespace:
+        arg_parser = ArgumentParser()
+
+        for command, options in args_config.items():
+            arg_parser.add_argument(*command, **options)
+        return arg_parser.parse_args(sys.argv[3:])
+
+    @staticmethod
+    def load_app_env(env_file_path: Path):
+        if not env_file_path.exists():
+            raise FileNotFoundError(f"no .env file found at {env_file_path.as_posix()}")
+        else:
+            dotenv.load_dotenv(env_file_path)
 
 
 def collect_entry_points() -> Dict[str, EntryPoint]:
@@ -209,7 +203,11 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
             module = import_module(f"{doted_path}.{name}")
             modules.append(module)
 
-    # look through all the modules, and find all entry point classes
+    """
+    look through all the modules that were collected, and if any of the classes found
+    in the corresponding module have have inherited from the class EntryPoint, add 
+    them to the list of callable entry point classes.
+    """
     for module in modules:
 
         for name, obj in inspect.getmembers(module):
@@ -217,7 +215,7 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
             if inspect.isclass(obj):
 
                 try:
-                    if obj.is_entrypoint():
+                    if obj.is_entry_point():
                         entry_points.append(obj)
                 except AttributeError:
                     pass
@@ -242,3 +240,18 @@ def run_entry_point(env_name: str = None):
         print("invalid command. Not yet implemented, try again.")
 
     exit(0)
+
+
+def parse_cmd_args(args_config: Dict[Tuple, Dict[str, Any]]) -> Namespace:
+    """
+    Parse command line args in one call, using a dict as a configuration.
+    Args:
+        args_config: Dict[Tuple, Dict[str, Any]] according to standard lib ArgumentParser kwargs
+
+    Returns: Namespace
+    """
+    arg_parser = ArgumentParser()
+
+    for command, options in args_config.items():
+        arg_parser.add_argument(*command, **options)
+    return arg_parser.parse_args()
