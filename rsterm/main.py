@@ -4,25 +4,37 @@ from rsterm import parse_cmd_args
 YML_TEMPLATE = """
 rsterm:
 
+  app:
+    name: {name}
+
+  # list the directories here where the entry points for your project exist. The will be automatically collected by rsterm.
   entrypoints:
-    - terminal/entry
+    - {name}/terminal/entry
   
+  # environments are assigned names, with the file name they are to load.
   environment:
     app_env: .env
     
+  # multiple connections can be added here and can later be referenced by key value
   db_connections:
     redshift: DATABASE_URL
         
+  # put your iam roles for your terminal application here
   iam_roles:
     redshift: IAM_ROLE
         
+ # if your project uses aws secrets directly add them here
   aws_secrets:
     key: AWS_ACCESS_KEY_ID
     secret: AWS_ACCESS_KEY_SECRET
         
+  # add as many project buckets as you wish here, you can later fetch them by name      
   aws_buckets:
     redshift: S3_BUCKET
 
+  # add your verbs and nouns here, these will be automatically be mapped to classes of the same name
+  # combination. an example command would be  my-app new file. rsterm expects a pattern of noun / verb, but this is
+  # not strictly enforced.
   terminal:  
     verbs:
       - new
@@ -50,19 +62,42 @@ terminal_args = {
     ('new',): {
         'help': 'Command to create a new config',
         'choices': ['new']
+    },
+
+    ('app',): {
+        'help': 'the name you would like to give to your app.'
     }
 }
 
+MAIN_TEMPLATE = """
+from rsterm import run_entry_point
+
+if __name__ == "__main__":
+    run_entry_point()
+
+""".strip()
+
 
 def main():
-    _ = parse_cmd_args(terminal_args)
+    cmd_args = parse_cmd_args(terminal_args)
+
     config_name = "rsterm.yml"
     config_path = Path.cwd().absolute() / config_name
+    project_path = Path.cwd().absolute() / cmd_args.app
+    entry_path = project_path / "terminal/entry"
+    terminal_init = project_path / "terminal/__init__.py"
+    main_file = Path.cwd().absolute() / f"{cmd_args.app}.py"
 
     try:
         config_path.touch(exist_ok=False)
-        config_path.write_text(YML_TEMPLATE)
+        config_path.write_text(YML_TEMPLATE.format(name=cmd_args.app))
         print(f"{config_name} was created in your projects root directory! Please configure this file.")
+
+        project_path.mkdir(parents=True, exist_ok=True)
+        entry_path.mkdir(parents=True, exist_ok=True)
+        terminal_init.touch(exist_ok=True)
+        main_file.touch(exist_ok=True)
+        main_file.write_text(MAIN_TEMPLATE)
 
     except FileExistsError:
         print(f"File name {config_name} already exists. File creation will be skipped.")
