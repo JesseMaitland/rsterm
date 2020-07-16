@@ -29,7 +29,7 @@ rsterm:
     secret: AWS_ACCESS_KEY_SECRET
         
   # add as many project buckets as you wish here, you can later fetch them by name      
-  aws_buckets:
+  s3_buckets:
     redshift: S3_BUCKET
 
   # add your verbs and nouns here, these will be automatically be mapped to classes of the same name
