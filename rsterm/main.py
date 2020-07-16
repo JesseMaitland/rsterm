@@ -84,6 +84,7 @@ def main():
     config_name = "rsterm.yml"
     config_path = Path.cwd().absolute() / config_name
     project_path = Path.cwd().absolute() / cmd_args.app
+    project_init = project_path / "__init__.py"
     entry_path = project_path / "terminal/entry"
     terminal_init = project_path / "terminal/__init__.py"
     main_file = Path.cwd().absolute() / f"{cmd_args.app}.py"
@@ -98,6 +99,7 @@ def main():
         terminal_init.touch(exist_ok=True)
         main_file.touch(exist_ok=True)
         main_file.write_text(MAIN_TEMPLATE)
+        project_init.touch(exist_ok=True)
 
     except FileExistsError:
         print(f"File name {config_name} already exists. File creation will be skipped.")

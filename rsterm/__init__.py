@@ -50,8 +50,8 @@ class VerbNounMap:
         }
 
     @property
-    def verb_noun_map(self) -> Tuple[str]:
-        return tuple([f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns])
+    def verb_noun_map(self) -> List[str]:
+        return [f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns]
 
 
 class RSTermConfig:
@@ -79,7 +79,9 @@ class RSTermConfig:
             return psycopg2.connect(conn_string)
 
     def get_aws_secrets(self) -> AWSSecrets:
-        return AWSSecrets(**self._config['rsterm']['aws_secrets'])
+        key = os.getenv(self._config['rsterm']['aws_secrets']['key'])
+        secret = os.getenv(self._config['rsterm']['aws_secrets']['secret'])
+        return AWSSecrets(key=key, secret=secret)
 
     def get_iam_role(self, role_name: str) -> str:
         role_var_name = self._config['rsterm']['iam_roles'][role_name]
@@ -91,7 +93,7 @@ class RSTermConfig:
             return role_value
 
     def get_s3_bucket(self, bucket_name: str) -> str:
-        s3_bucket_var_name = self._config['s3_buckets'][bucket_name]
+        s3_bucket_var_name = self._config['rsterm']['s3_buckets'][bucket_name]
         bucket_value = os.getenv(s3_bucket_var_name)
 
         if not bucket_value:
@@ -122,6 +124,12 @@ class RSTermConfig:
 
 
 class EntryPoint(ABC):
+    """
+    Base class to be used by all program entry points. If specific arguments are to be used for the
+    inheriting child class, then the entry_point_args dictionary can be overridden with the format
+
+    entry_point_args = dict(tuple(), dict(arg: kwargs))
+    """
     entry_point_args = {}
 
     def __init__(self, env_name: str = None):
@@ -188,6 +196,14 @@ class EntryPoint(ABC):
 
 
 def collect_entry_points() -> Dict[str, EntryPoint]:
+    """
+    function is used to introspect and collect all EntryPoint classes from the paths
+    configured in the rsterm.yml file.
+
+    Returns: Dict[str, EntryPoint]
+        The return dictionary contains all classes which have inherited from EntryPoint,
+        with a corresponding name key. This key is used as a verb_noun_mapping.
+    """
     config = RSTermConfig.parse_config()
     modules = []
     entry_points = []
@@ -196,7 +212,7 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
 
         doted_path = entry_point_path.as_posix().replace('/', '.')
 
-        # include path if we have an __init__.py file
+        # include path if we have an __init__.py file which has been used to create the entry points.
         modules.append(import_module(doted_path))
 
         for _, name, _ in pkgutil.iter_modules([entry_point_path]):
@@ -224,10 +240,17 @@ def collect_entry_points() -> Dict[str, EntryPoint]:
 
 
 def run_entry_point(env_name: str = None):
+    """
+    function introspects all entry point paths as specified in the rsterm.yml file, and collects all
+    objects which have inherited from EntryPoint, and maps them to the verb / noun mappings as specified
+    in rsterm.yml If a mapping combination exists in the config file, but there is no corresponding class
+    name, then a NotImplementedError is raised, and the function prints an error message and exits.
+    """
     entry_points = collect_entry_points()
     config = RSTermConfig.parse_config()
     ns = config.parse_nouns_and_verbs()
     key = f"{ns.verb}_{ns.noun}"
+    exit_code = 0
 
     try:
         if key not in entry_points.keys():
@@ -238,8 +261,9 @@ def run_entry_point(env_name: str = None):
 
     except NotImplementedError:
         print("invalid command. Not yet implemented, try again.")
+        exit_code = 1
 
-    exit(0)
+    exit(exit_code)  # exit no matter what
 
 
 def parse_cmd_args(args_config: Dict[Tuple, Dict[str, Any]]) -> Namespace:
