@@ -3,7 +3,7 @@ import os
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '0.0.9'
+VERSION = '0.0.10'
 
 
 class VerifyVersionCommand(install):
@@ -38,7 +38,7 @@ setup(
     license='MIT',
     packages=find_packages(exclude=('tests*', 'venv')),
     entry_points={
-        'console_scripts': ['rsterm = rsterm.main:main']
+        'console_scripts': ['rsterm = rsterm.__main__:main']
     },
     download_url="",
     long_description_content_type="text/markdown",

@@ -1,0 +1,2 @@
+class AppConfigFileNotSet(Exception):
+    pass

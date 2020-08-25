@@ -1,0 +1,37 @@
+rsterm:
+  app:
+    name: {name} # this key is required
+    description: 'short text to describe your app'
+    is_pip_package: true
+
+  entrypoint_paths: # this key is required
+    - entrypoints
+
+  # environments are assigned names, with the file name they are to load.
+  environment:
+    load_env: true
+    app_env: .env
+
+  # multiple connections can be added here and can later be referenced by key value
+  db_connections:
+    redshift: DATABASE_URL
+
+  # put your iam roles for your terminal application here
+  iam_roles:
+    redshift: IAM_ROLE
+
+  # if your project uses aws secrets directly add them here
+  aws_secrets:
+    key: AWS_ACCESS_KEY_ID
+    secret: AWS_ACCESS_KEY_SECRET
+
+  # add as many project buckets as you wish here, you can later fetch them by name
+  s3_buckets:
+    redshift: S3_BUCKET
+
+  terminal:
+    verbs:
+      - run
+
+    nouns:
+      - {name}

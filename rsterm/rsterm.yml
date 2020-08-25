@@ -1,0 +1,15 @@
+rsterm:
+  app:
+    name: rsterm
+    description: 'a small collection of tools to manage CLI entrypoints and execution'
+    is_pip_package: true
+
+  entrypoint_paths:
+    - terminal
+
+  terminal:
+    verbs:
+      - new
+
+    nouns:
+      - project
