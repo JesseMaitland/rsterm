@@ -26,7 +26,7 @@ def get_arg_parser():
 
 def validate_version(version):
     print(f"version {version} received")
-    if re.search(version_pattern, version):
+    if re.search('[0-9]+.[0-9]+.[0-9]+', version):
         return True
     else:
         return False
