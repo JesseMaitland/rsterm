@@ -1,0 +1,4 @@
+include rsterm/templates/main_template.txt
+include rsterm/templates/rsterm_template.yml
+include rsterm/templates/setup_template.txt
+include rsterm/rsterm.yml
