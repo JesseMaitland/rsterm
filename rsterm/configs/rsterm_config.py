@@ -68,10 +68,6 @@ class RsTermConfig:
         return self.app.get('is_pip_package', False)
 
     @property
-    def app_config_file(self) -> str:
-        return self.app.get('config_file', '')
-
-    @property
     def verbs(self) -> List[str]:
         return self.terminal['verbs']
 
@@ -82,6 +78,35 @@ class RsTermConfig:
     @property
     def verb_noun_map(self) -> List[str]:
         return [f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns]
+
+    def get_entrypoint_paths(self) -> List[Path]:
+        return [Path(p) for p in self.entrypoint_paths]
+
+    def get_s3_bucket(self, bucket_name: str) -> str:
+        value = self.s3_buckets[bucket_name]
+        return os.environ.get(value, value)
+
+    def get_iam_role(self, iam_role: str) -> str:
+        value = self.iam_roles[iam_role]
+        return os.environ.get(value, value)
+
+    def get_db_connection_(self, connection_name: str) -> connection:
+        value = self.db_connections[connection_name]
+        connection_string = os.environ.get(value, value)
+        return psycopg2.connect(connection_string)
+
+    @staticmethod
+    def parse_config(config_path: Path) -> 'RsTermConfig':
+
+        with config_path.open() as config_file:
+            return RsTermConfig(**yaml.safe_load(config_file)['rsterm'])
+
+    def parse_nouns_and_verbs(self) -> Namespace:
+        arg_parser = ArgumentParser()
+
+        for command, options in self.get_formatted_actions().items():
+            arg_parser.add_argument(*command, **options)
+        return arg_parser.parse_args(sys.argv[1:3])
 
     def get_formatted_actions(self) -> Dict[Tuple[str], Dict[str, Any]]:
         return {
@@ -96,30 +121,3 @@ class RsTermConfig:
                 'choices': self.nouns
             }
         }
-
-    def get_entrypoint_paths(self) -> List[Path]:
-        return [Path(p) for p in self.entrypoint_paths]
-
-    def get_db_connection_string(self, connection_name: str) -> str:
-
-        try:
-            env_var = self.db_connections[connection_name]
-            return os.environ[env_var]
-        except KeyError:
-            raise KeyError(f'no database with the name {connection_name} has been configured in {self.app_name}.yml')
-
-    def get_db_connection(self, connection_name: str) -> connection:
-        return psycopg2.connect(self.get_db_connection_string(connection_name))
-
-    @staticmethod
-    def parse_config(config_path: Path) -> 'RsTermConfig':
-
-        with config_path.open() as config_file:
-            return RsTermConfig(**yaml.safe_load(config_file)['rsterm'])
-
-    def parse_nouns_and_verbs(self) -> Namespace:
-        arg_parser = ArgumentParser()
-
-        for command, options in self.get_formatted_actions().items():
-            arg_parser.add_argument(*command, **options)
-        return arg_parser.parse_args(sys.argv[1:3])
