@@ -48,12 +48,12 @@ class RsTermConfig:
         return getattr(self, '_aws_secrets', {})
 
     @property
-    def load_env_file(self) -> bool:
+    def load_env(self) -> bool:
         return bool(self.environment.get('load_env', False))
 
     @property
     def env_file_name(self) -> str:
-        return self.environment.get('env_file_name', '')
+        return self.environment.get('app_env', '.env')
 
     @property
     def app_name(self) -> str:

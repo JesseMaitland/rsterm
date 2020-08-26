@@ -58,7 +58,7 @@ class EntryPoint(ABC):
 
         self.cmd_args: Namespace = parse_cmd_args(self.entry_point_args, arg_index=3)
 
-        if self.rsterm.load_env_file:
+        if self.rsterm.load_env:
             self.env_file_path = Path().cwd() / self.rsterm.env_file_name
             self.load_app_env(self.env_file_path)
         else:
