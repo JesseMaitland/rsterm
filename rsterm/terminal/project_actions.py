@@ -2,13 +2,12 @@ import subprocess
 from pathlib import Path
 from rsterm import EntryPoint
 
+
 class TemplateDirs:
     CWD = Path().cwd().absolute()
     ROOT_PATH = Path(__file__).absolute().parent.parent
     TEMPLATE_PATH = ROOT_PATH / "templates"
     RSTERM_FILE_NAME = 'rsterm_template.yml'
-
-
 
 
 class NewProject(EntryPoint):
@@ -102,9 +101,3 @@ class NewProject(EntryPoint):
         if self.cmd_args.install:
             cmd = ['pip', 'install', '-e', '.']
             subprocess.run(cmd)
-
-
-class CreateConfig(EntryPoint):
-
-    def run(self) -> None:
-        pass

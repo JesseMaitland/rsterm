@@ -6,7 +6,6 @@ from psycopg2.extensions import connection
 from argparse import ArgumentParser, Namespace
 from typing import Dict, List, Tuple, Any
 from pathlib import Path
-from dotenv import load_dotenv
 
 
 class RsTermConfig:
