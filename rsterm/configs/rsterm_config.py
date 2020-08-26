@@ -6,6 +6,7 @@ from psycopg2.extensions import connection
 from argparse import ArgumentParser, Namespace
 from typing import Dict, List, Tuple, Any
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 class RsTermConfig:
@@ -49,7 +50,7 @@ class RsTermConfig:
 
     @property
     def load_env_file(self) -> bool:
-        return True if self.environment.get('load_env', '') else False
+        return bool(self.environment.get('load_env', False))
 
     @property
     def env_file_name(self) -> str:
@@ -79,6 +80,10 @@ class RsTermConfig:
     def verb_noun_map(self) -> List[str]:
         return [f"{verb}_{noun}" for verb in self.verbs for noun in self.nouns]
 
+    @property
+    def override_file(self) -> str:
+        return self.app.get('override_file', None)
+
     def get_entrypoint_paths(self) -> List[Path]:
         return [Path(p) for p in self.entrypoint_paths]
 
@@ -90,7 +95,7 @@ class RsTermConfig:
         value = self.iam_roles[iam_role]
         return os.environ.get(value, value)
 
-    def get_db_connection_(self, connection_name: str) -> connection:
+    def get_db_connection(self, connection_name: str) -> connection:
         value = self.db_connections[connection_name]
         connection_string = os.environ.get(value, value)
         return psycopg2.connect(connection_string)

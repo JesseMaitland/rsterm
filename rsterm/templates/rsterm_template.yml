@@ -3,6 +3,7 @@ rsterm:
     name: {name} # this key is required
     description: 'short text to describe your app'
     is_pip_package: true
+    override_file: .{name}
 
   entrypoint_paths: # this key is required
     - entrypoints

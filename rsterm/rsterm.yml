@@ -3,6 +3,7 @@ rsterm:
     name: rsterm
     description: 'a small collection of tools to manage CLI entrypoints and execution'
     is_pip_package: true
+    override_file: .rsterm
 
   entrypoint_paths:
     - terminal

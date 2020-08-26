@@ -49,6 +49,13 @@ class EntryPoint(ABC):
         """
         self.rsterm: RsTermConfig = RsTermConfig.parse_config(config_path)
 
+        # check if we have an override file in the root directory
+        if self.rsterm.override_file:
+            override_path = Path.cwd().absolute() / self.rsterm.override_file
+
+            if override_path.exists():
+                self.rsterm: RsTermConfig = RsTermConfig.parse_config(override_path)
+
         self.cmd_args: Namespace = parse_cmd_args(self.entry_point_args, arg_index=3)
 
         if self.rsterm.load_env_file:
