@@ -54,7 +54,13 @@ class EntryPoint(ABC):
             override_path = Path.cwd().absolute() / self.rsterm.override_file
 
             if override_path.exists():
-                self.rsterm: RsTermConfig = RsTermConfig.parse_config(override_path)
+                override_config = RsTermConfig.parse_config(config_path)
+
+                for override_key in RsTermConfig.optional_kwargs:
+                    override_value = getattr(override_config, override_key)
+
+                    if override_value:
+                        setattr(self.rsterm, f"_{override_key}", override_value)
 
         self.cmd_args: Namespace = parse_cmd_args(self.entry_point_args, arg_index=3)
 

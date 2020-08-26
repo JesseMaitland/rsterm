@@ -10,6 +10,7 @@ from pathlib import Path
 
 class RsTermConfig:
     root_dir = Path.cwd().absolute()
+    optional_kwargs = ['db_connections', 'environment', 'iam_roles', 's3_buckets', 'aws_secrets']
 
     def __init__(self, app: Dict[str, str],
                  entrypoint_paths: Dict[str, List],
@@ -19,9 +20,7 @@ class RsTermConfig:
         self.entrypoint_paths = entrypoint_paths
         self.terminal = terminal
 
-        optional_kwargs = ['db_connections', 'environment', 'iam_roles', 's3_buckets', 'aws_secrets']
-
-        for optional_kwarg in optional_kwargs:
+        for optional_kwarg in self.optional_kwargs:
             try:
                 setattr(self, f"_{optional_kwarg}", kwargs[optional_kwarg])
             except KeyError:
