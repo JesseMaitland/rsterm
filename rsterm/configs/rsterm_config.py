@@ -121,8 +121,6 @@ class RsTermConfig:
 
                 if override_value:
                     setattr(rsterm, f"_{override_key}", override_value)
-        else:
-            raise FileNotFoundError(f"override file {override_path.as_posix()} not found.")
 
         return rsterm
 
