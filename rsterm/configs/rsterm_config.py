@@ -100,10 +100,13 @@ class RsTermConfig:
         return psycopg2.connect(connection_string)
 
     @staticmethod
-    def parse_config(config_path: Path) -> 'RsTermConfig':
+    def parse_config(config_path: Path, override: bool = False) -> 'RsTermConfig':
 
         with config_path.open() as config_file:
-            return RsTermConfig(**yaml.safe_load(config_file)['rsterm'])
+            if not override:
+                return RsTermConfig(**yaml.safe_load(config_file)['rsterm'])
+            else:
+                return yaml.safe_load(config_file)['rsterm']
 
     @staticmethod
     def override_config(rsterm: 'RsTermConfig') -> 'RsTermConfig':
@@ -111,10 +114,10 @@ class RsTermConfig:
         override_path = Path.cwd().absolute() / rsterm.override_file
 
         if override_path.exists():
-            override_config = RsTermConfig.parse_config(override_path)
+            override_dict = RsTermConfig.parse_config(override_path, override=True)
 
             for override_key in RsTermConfig.optional_kwargs:
-                override_value = getattr(override_config, override_key)
+                override_value = override_dict.get(override_key, None)
 
                 if override_value:
                     setattr(rsterm, f"_{override_key}", override_value)

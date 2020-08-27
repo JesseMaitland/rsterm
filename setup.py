@@ -3,7 +3,7 @@ import os
 from setuptools import setup, find_packages
 from setuptools.command.install import install
 
-VERSION = '0.0.17'
+VERSION = '0.0.18'
 
 
 class VerifyVersionCommand(install):
@@ -40,7 +40,7 @@ setup(
     entry_points={
         'console_scripts': ['rsterm = rsterm.__main__:main']
     },
-    download_url="",
+    download_url="https://github.com/JesseMaitland/rsterm",
     long_description_content_type="text/markdown",
     python_requires='>=3',
     cmdclass={
