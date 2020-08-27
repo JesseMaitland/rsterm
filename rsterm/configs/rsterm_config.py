@@ -6,6 +6,7 @@ from psycopg2.extensions import connection
 from argparse import ArgumentParser, Namespace
 from typing import Dict, List, Tuple, Any
 from pathlib import Path
+from dotenv import load_dotenv
 
 
 class RsTermConfig:
@@ -103,6 +104,29 @@ class RsTermConfig:
 
         with config_path.open() as config_file:
             return RsTermConfig(**yaml.safe_load(config_file)['rsterm'])
+
+    @staticmethod
+    def override_config(rsterm: 'RsTermConfig') -> 'RsTermConfig':
+        # check if we have an override file in the root directory
+        override_path = Path.cwd().absolute() / rsterm.override_file
+
+        if override_path.exists():
+            override_config = RsTermConfig.parse_config(override_path)
+
+            for override_key in RsTermConfig.optional_kwargs:
+                override_value = getattr(override_config, override_key)
+
+                if override_value:
+                    setattr(rsterm, f"_{override_key}", override_value)
+        else:
+            raise FileNotFoundError(f"override file {override_path.as_posix()} not found.")
+
+        return rsterm
+
+    @staticmethod
+    def load_rsterm_env(rsterm: 'RsTermConfig') -> None:
+        env_file_path = Path().cwd() / rsterm.env_file_name
+        load_dotenv(env_file_path)
 
     def parse_nouns_and_verbs(self) -> Namespace:
         arg_parser = ArgumentParser()

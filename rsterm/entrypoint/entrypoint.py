@@ -1,5 +1,4 @@
 import sys
-import dotenv
 from typing import Dict, Tuple
 from abc import ABC, abstractmethod
 from pathlib import Path
@@ -44,31 +43,19 @@ class EntryPoint(ABC):
     def __init__(self, config_path: Path = None):
         """
         Args:
-            config_path: Path[Optional] if provided, must be a path to a rambo.yml config file.
+            config_path: Path[Optional] if provided, must be a path to an rsterm.yml config file.
                          if not provided, will default to root/<my_app>/my_app.yml
         """
-        self.rsterm: RsTermConfig = RsTermConfig.parse_config(config_path)
+        rsterm: RsTermConfig = RsTermConfig.parse_config(config_path)
 
-        # check if we have an override file in the root directory
-        if self.rsterm.override_file:
-            override_path = Path.cwd().absolute() / self.rsterm.override_file
+        if rsterm.override_file:
+            rsterm = RsTermConfig.override_config(rsterm)
 
-            if override_path.exists():
-                override_config = RsTermConfig.parse_config(config_path)
+        if rsterm.load_env:
+            RsTermConfig.load_rsterm_env(rsterm)
 
-                for override_key in RsTermConfig.optional_kwargs:
-                    override_value = getattr(override_config, override_key)
-
-                    if override_value:
-                        setattr(self.rsterm, f"_{override_key}", override_value)
-
+        self.rsterm = rsterm
         self.cmd_args: Namespace = parse_cmd_args(self.entry_point_args, arg_index=3)
-
-        if self.rsterm.load_env:
-            self.env_file_path = Path().cwd() / self.rsterm.env_file_name
-            self.load_app_env(self.env_file_path)
-        else:
-            self.env_file_path = None
 
     @classmethod
     def new(cls, config_path: Path = None):
@@ -98,7 +85,7 @@ class EntryPoint(ABC):
     def _validate_class_name(cls) -> None:
         """
         Will raise an Exception if the class name is more than 2 words. This allows the
-        actions in the rambo.yml file to be mapped to class names.
+        actions in the rsterm.yml file to be mapped to class names.
         """
         underscores = 0
         for char in cls.name():
@@ -115,10 +102,3 @@ class EntryPoint(ABC):
         Returns: True if this is a child class
         """
         return False if cls.__name__ == 'EntryPoint' else True
-
-    @staticmethod
-    def load_app_env(env_file_path: Path):
-        if not env_file_path.exists():
-            raise FileNotFoundError(f"no .env file found at {env_file_path.as_posix()}")
-        else:
-            dotenv.load_dotenv(env_file_path)

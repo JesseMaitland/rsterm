@@ -1,0 +1,45 @@
+rsterm:
+  app:
+    name: spam # this key is required
+    description: 'spam eggs beans'
+    is_pip_package: true
+    override_file: .spam
+
+  entrypoint_paths: # this key is required
+    - entrypoints
+
+  # environments are assigned names, with the file name they are to load.
+  environment:
+    load_env: true
+    app_env: ./tests/fixtures/spam.env
+
+  # multiple connections can be added here and can later be referenced by key value
+  db_connections:
+    redshift: SPAM_DB_URL
+    blueshift: this-value-is-direct-reference
+
+  # put your iam roles for your terminal application here
+  iam_roles:
+    redshift: SPAM_ROLE
+    blueshift: this-value-is-direct-reference
+
+  # if your project uses aws secrets directly add them here
+  aws_secrets:
+    key: SPAM_ACCESS_KEY
+    secret: SPAM_SECRET_KEY
+
+  # add as many project buckets as you wish here, you can later fetch them by name
+  s3_buckets:
+    redshift: SPAM_BUCKET
+    blueshift: this-value-is-direct-reference
+
+  terminal:
+    verbs:
+      - run
+      - new
+      - delete
+
+    nouns:
+      - spam
+      - eggs
+      - beans
