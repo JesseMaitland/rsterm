@@ -60,7 +60,8 @@ def run_entry_point(config_path: Path = None):
         if key not in entry_points.keys():
             raise NotImplementedError
         else:
-            entry_point = entry_points[key].new(config_path)
+            entry_point = entry_points[key](config_path)
+            entry_point.validate_class_name()
             entry_point.run()
 
     except NotImplementedError:

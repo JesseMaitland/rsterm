@@ -57,11 +57,6 @@ class EntryPoint(ABC):
         self.rsterm = rsterm
         self.cmd_args: Namespace = parse_cmd_args(self.entry_point_args, arg_index=3)
 
-    @classmethod
-    def new(cls, config_path: Path = None):
-        cls._validate_class_name()
-        return cls(config_path)
-
     @abstractmethod
     def run(self) -> None:
         """
@@ -82,7 +77,7 @@ class EntryPoint(ABC):
         return snake.lstrip('_')
 
     @classmethod
-    def _validate_class_name(cls) -> None:
+    def validate_class_name(cls) -> None:
         """
         Will raise an Exception if the class name is more than 2 words. This allows the
         actions in the rsterm.yml file to be mapped to class names.
